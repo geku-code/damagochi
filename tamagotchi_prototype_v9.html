@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Tamagotchi — PC Prototype v8 · 몽글이/삐약이/동글이 새 손그림 도안 리디자인</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @import url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/galmuri.css');
+
+  :root{
+    --shell:        #bfe8d4;
+    --shell-dark:   #93cdb0;
+    --shell-light:  #e5f7ee;
+    --bezel:        #202537;
+    --bezel-dark:   #14172180;
+    --screen-bg:    #060a08;
+    --phosphor:     #86f7d6;
+    --phosphor-dim: #2c6153;
+    --accent:       #ff7096;
+    --accent-dark:  #d64f74;
+    --cream:        #f7f1de;
+    --ink:          #1c2233;
+    --page-bg-1:    #eef7f0;
+    --page-bg-2:    #dcefe4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-pixel:   'VT323', monospace;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:18px;
+    padding:32px 16px 48px;
+    background:
+      radial-gradient(circle at 20% 15%, #ffffffaa, transparent 45%),
+      linear-gradient(160deg, var(--page-bg-1), var(--page-bg-2));
+    font-family:var(--font-display);
+    color:var(--ink);
+  }
+
+  .eyebrow{
+    font-size:13px;
+    letter-spacing:0.18em;
+    font-weight:600;
+    color:var(--shell-dark);
+    text-transform:uppercase;
+  }
+  .eyebrow b{ color:var(--accent-dark); }
+
+  /* ===================== 디바이스 쉘 ===================== */
+  .device{
+    position:relative;
+    width:min(384px, 94vw);
+    background:linear-gradient(155deg, var(--shell-light), var(--shell) 55%, var(--shell-dark));
+    border-radius:46px;
+    padding:22px 22px 26px;
+    box-shadow:
+      0 2px 0 #ffffffb0 inset,
+      0 -10px 24px #ffffff55 inset,
+      0 24px 40px -18px #4c8c6f66,
+      0 2px 0 var(--shell-dark);
+  }
+  .device::before{
+    content:"";
+    position:absolute;
+    top:-16px; left:50%;
+    width:14px; height:22px;
+    transform:translateX(-50%);
+    background:var(--accent);
+    border-radius:8px 8px 4px 4px;
+    box-shadow:0 3px 0 var(--accent-dark);
+  }
+  .device::after{
+    content:"";
+    position:absolute;
+    top:-6px; left:50%;
+    width:26px; height:10px;
+    transform:translateX(-50%);
+    background:var(--shell-dark);
+    border-radius:6px;
+  }
+
+  .screws{ position:absolute; width:7px; height:7px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffffffcc, var(--shell-dark) 70%); }
+  .screws.tl{ top:16px; left:18px; }
+  .screws.tr{ top:16px; right:18px; }
+  .screws.bl{ bottom:16px; left:18px; }
+  .screws.br{ bottom:16px; right:18px; }
+
+  /* ===================== 베젤 + OLED 화면 ===================== */
+  .bezel{
+    margin-top:12px;
+    background:linear-gradient(160deg, #2b3247, var(--bezel));
+    border-radius:20px;
+    padding:14px;
+    box-shadow:0 10px 18px -10px #00000055, 0 0 0 1px #ffffff22 inset;
+  }
+
+  .screen-wrap{
+    position:relative;
+    border-radius:8px;
+    overflow:hidden;
+    background:var(--screen-bg);
+    box-shadow:0 0 0 3px #000000aa inset, 0 0 22px #00000090 inset;
+  }
+  .screen-wrap::after{
+    content:"";
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.28) 0px,
+      rgba(0,0,0,0.28) 1px,
+      transparent 2px,
+      transparent 3px
+    );
+    pointer-events:none;
+    mix-blend-mode:multiply;
+  }
+  .screen-wrap::before{
+    content:"";
+    position:absolute; inset:0;
+    background:linear-gradient(115deg, #ffffff14 0%, transparent 30%);
+    pointer-events:none;
+  }
+
+  /* 128x64 OLED을 그대로 흉내내는 캔버스. 실제 드로잉 버퍼는 128x64이고
+     CSS로만 확대하기 때문에 아두이노 OLED와 동일한 "블록형" 픽셀아트가 된다. */
+  #oled{
+    position:relative;
+    z-index:0;
+    display:block;
+    width:100%;
+    aspect-ratio: 2 / 1;
+    image-rendering:pixelated;
+    image-rendering:-moz-crisp-edges;
+    image-rendering:crisp-edges;
+  }
+
+  /* ===================== 버튼 ===================== */
+  .controls{
+    margin-top:18px;
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    grid-template-areas:
+      ".    up    ."
+      "left center right"
+      ".    down  .";
+    gap:10px;
+  }
+  .btn{ grid-area:auto; }
+  .btn.up{ grid-area:up; }
+  .btn.left{ grid-area:left; }
+  .btn.center{ grid-area:center; }
+  .btn.right{ grid-area:right; }
+  .btn.down{ grid-area:down; }
+
+  .btn.updown{
+    background:linear-gradient(180deg, #ffffff, #eef2fb);
+    border:1.5px dashed #b9c3dd;
+    box-shadow:0 4px 0 #c7cfe6, 0 6px 10px -4px #00000020;
+  }
+  .btn.updown.is-active{
+    border-style:solid;
+    border-color:var(--accent);
+    background:linear-gradient(180deg, #fff, #ffe1e9);
+    box-shadow:0 4px 0 var(--accent-dark), 0 6px 10px -4px #00000030;
+  }
+  .btn.updown:not(.is-active){
+    opacity:.45;
+    cursor:default;
+  }
+  .btn.updown:not(.is-active):active{ transform:none; box-shadow:0 4px 0 #c7cfe6; }
+  .btn{
+    -webkit-tap-highlight-color:transparent;
+    border:none;
+    border-radius:16px;
+    padding:14px 0 12px;
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    background:linear-gradient(180deg, var(--cream), #e9dfc0);
+    box-shadow:0 4px 0 #c9bd93, 0 6px 10px -4px #00000030;
+    cursor:pointer;
+    transition:transform .04s ease, box-shadow .04s ease;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  .btn small{ font-size:10px; opacity:.62; font-weight:500; letter-spacing:.03em; }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #c9bd93; }
+  .btn.center{ background:linear-gradient(180deg, #fff, var(--phosphor)); }
+  .btn.center:active{ box-shadow:0 1px 0 #4fae8f; }
+
+  .reset-row{
+    margin-top:12px;
+    display:flex;
+    justify-content:center;
+  }
+  .reset-btn{
+    font-family:var(--font-display);
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.08em;
+    color:var(--accent-dark);
+    background:none;
+    border:1.5px dashed var(--accent);
+    border-radius:999px;
+    padding:6px 16px;
+    cursor:pointer;
+  }
+  .reset-btn:active{ background:var(--accent); color:#fff; }
+
+  /* ===================== 하단 개발자 패널 (디버그용, OLED 밖) ===================== */
+  .devpanel{
+    width:min(384px, 94vw);
+    font-family:var(--font-pixel);
+    font-size:15px;
+    color:var(--ink);
+    background:#ffffffb0;
+    border:1px solid #ffffff;
+    border-radius:14px;
+    padding:10px 14px;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .devpanel span{ color:var(--shell-dark); }
+  .devpanel b{ color:var(--accent-dark); }
+
+  .hint{
+    max-width:360px;
+    text-align:center;
+    font-size:12px;
+    line-height:1.6;
+    color:#5c7a6b;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .btn{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="eyebrow">Arduino Mini Tamagotchi · <b>PC 프로토타입 v8 — 몽글이/삐약이/동글이 새 도안 리디자인</b></div>
+
+  <div class="device">
+    <span class="screws tl"></span><span class="screws tr"></span>
+    <span class="screws bl"></span><span class="screws br"></span>
+
+    <div class="bezel">
+      <div class="screen-wrap">
+        <canvas id="oled" width="384" height="192"></canvas>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn updown up" id="btnW">W<small>위 ↑</small></button>
+      <button class="btn left" id="btnA">A<small>왼쪽</small></button>
+      <button class="btn center" id="btnS">S<small>확인</small></button>
+      <button class="btn right" id="btnD">D<small>오른쪽</small></button>
+      <button class="btn updown down" id="btnX">X<small>아래 ↓</small></button>
+    </div>
+
+    <div class="reset-row">
+      <button class="reset-btn" id="btnReset">● RESET (Q)</button>
+    </div>
+  </div>
+
+  <div class="devpanel">
+    <div>STATE: <b id="devState">-</b></div>
+    <div>GAUGE: <b id="devGauge">-</b></div>
+    <div>STAT: <b id="devStat">-</b></div>
+  </div>
+
+<script>
+/* ============================================================================
+ * pcver.c 이식본 v3 — "알은 도입부, 주인공은 크리처" 리디자인
+ * ----------------------------------------------------------------------------
+ * 이 버전에서 바뀐 것:
+ *   - 화면 렌더링을 텍스트(ASCII) 방식에서 128x64 캔버스 기반 "진짜 픽셀아트"
+ *     방식으로 전면 교체했습니다. draw_* 함수들은 여전히 로직(update_*)과
+ *     완전히 분리되어 있고, 이 draw_* 섹션만 나중에 Adafruit_GFX/SSD1306의
+ *     drawBitmap()/fillRect() 호출로 그대로 옮기면 아두이노 OLED로 이식됩니다.
+ *   - 알(EGG) 단계는 화면의 일부만 차지하는 "도입부"로 축소되고, 부화 이후의
+ *     크리처(아기→어린이→어른)가 화면의 40~60%를 차지하는 주인공이 됩니다.
+ *   - 성장 단계를 2단계에서 3단계(아기/어린이/어른)로 확장했습니다.
+ *     stage 1=아기, stage 2=어린이, stage 3=어른. GROWTH_1은 아기→어린이,
+ *     GROWTH_2는 어린이→어른 진화 연출이며, 어른 단계에서 게이지를 다 채우면
+ *     곧바로 엔딩(완전한 성장)으로 이어집니다.
+ *   - 표정(눈 깜빡임, 대기 통통 튀기)만을 위한 애니메이션 타이머를 추가했지만,
+ *     이 타이머는 오직 draw_screen()만 다시 호출할 뿐 update_state()나 게임
+ *     상태(g)는 절대 건드리지 않습니다. 즉 "게임 로직은 이벤트 기반, 표정
+ *     연출만 살짝 살아있는" 구조입니다. (README의 향후 확장 메모와 일치)
+ * ==========================================================================*/
+
+/* ---------------- 상수 ---------------- */
+const GAUGE_MAX = 100;
+const GAUGE_STAGE1_GOAL = 50;   /* 아기 -> 어린이 */
+const GAUGE_STAGE2_GOAL = 80;   /* 어린이 -> 어른 */
+const GAUGE_STAGE3_GOAL = 100;  /* 어른 -> 완전 성장(엔딩) */
+const BAR_WIDTH = 46;
+
+const STAT_MAX = 100;
+const STAT_START = 70;
+const CARE_MIN_TO_GROW = 40;
+
+const MINIGAME_BASE_LEN = 3;
+const MINIGAME_MAX_LEN = 6;
+const MINIGAME_ROUND_COUNT = 4;
+
+const HATCH_STEP_COUNT = 4;
+const GROWTH_STEP_COUNT = 4;
+
+/* ---------------- 애니메이션 tick 기반 시간 상수 (150ms/tick, setInterval과 동기화) ---------------- */
+const ANIM_TICK_MS = 150;
+const WASH_BUBBLE_DURATION_MS = 3000;                                   /* 씻기기 거품 연출 3초 */
+const WASH_BUBBLE_TICKS = Math.round(WASH_BUBBLE_DURATION_MS / ANIM_TICK_MS);
+const PET_MASH_DURATION_MS = 3000;                                      /* 쓰다듬기 연타 제한시간 3초 */
+const PET_MASH_TICKS = Math.round(PET_MASH_DURATION_MS / ANIM_TICK_MS);
+const PET_MASH_GAUGE_MAX = 100;
+const PET_MASH_STEP = 9; /* A/D를 번갈아 누를 때마다(연타) 게이지 증가량 */
+
+/* ---------------- 놀아주기: 미니게임 선택지 ---------------- */
+const PLAY_GAME_COUNT = 2;
+const PLAY_GAME_NAMES = ['기억력 게임', '달리기 게임'];
+
+/* ---------------- 달리기 게임(크롬 다이노 오마주) 상수 ---------------- */
+const DINO_GROUND_Y = 50;      /* 바닥선 y좌표 */
+const DINO_X = 14;             /* 캐릭터 고정 x좌표 */
+const DINO_W = 9, DINO_H = 10; /* 충돌 판정용 캐릭터 폭/높이 */
+const DINO_GRAVITY = 1;
+const DINO_JUMP_FORCE = 6;
+const DINO_BASE_SPEED = 3;
+const DINO_SPEEDUP_EVERY = 45;   /* 점수 45마다 속도 +1 (기존 60 → 더 빨리 가속) */
+const DINO_SPAWN_MIN = 13, DINO_SPAWN_VAR = 11; /* 장애물 생성 간격(틱) — 속도 증가에 맞춰 더 잦게 */
+
+/* ---------------- 상태 머신 enum ---------------- */
+const STATE = Object.freeze({
+  EGG:'EGG', HATCHING:'HATCHING', IDLE:'IDLE', INTERACT_MENU:'INTERACT_MENU',
+  FOOD_SELECT:'FOOD_SELECT',
+  ACTION_RESULT:'ACTION_RESULT', MINIGAME_SHOW:'MINIGAME_SHOW',
+  MINIGAME_INPUT:'MINIGAME_INPUT', MINIGAME_RESULT:'MINIGAME_RESULT',
+  GROWTH_1:'GROWTH_1', GROWTH_2:'GROWTH_2', ENDING:'ENDING',
+  STATUS:'STATUS',
+  PET_MASH:'PET_MASH',      /* 쓰다듬기 전용: A/D 연타로 게이지를 채우는 미니 상호작용 */
+  WASH_BUBBLE:'WASH_BUBBLE', /* 씻기기 전용: 3초짜리 거품 연출 (자동 진행) */
+  PLAY_SELECT:'PLAY_SELECT', /* 놀아주기 전용: 어떤 미니게임을 할지 고르는 화면 */
+  DINO_RUN:'DINO_RUN',       /* 크롬 다이노 게임 오마주: 자동 스크롤 + 점프 */
+  DINO_RESULT:'DINO_RESULT'
+});
+
+const ACT = Object.freeze({ FEED:0, WASH:1, PLAY:2, SLEEP:3, PET:4 });
+const ACTION_NAMES     = ['먹이주기','씻기기','놀아주기','재우기','쓰다듬기'];
+const ACTION_DONE_MSG  = ['먹이를 줬어요!','깨끗하게 씻겼어요!','함께 놀았어요!','포근히 재웠어요!','다정히 쓰다듬었어요!'];
+
+const CHAR_COUNT = 4;
+const CHAR_NAMES = ['몽글이','삐약이','동글이','포롱이'];
+const CHAR_DESC = ['순하고 무던한 성격', '활발하고 장난기 많은 성격', '차분하고 조용한 성격', '느긋하고 다정한 성격'];
+const CHAR_SPECIALTY = [ACT.FEED, ACT.PLAY, ACT.SLEEP, ACT.PET];
+const STAGE_NAMES = ['아기','어린이','어른'];
+
+/* ---------------- 먹이 3종 & 캐릭터별 호불호 ----------------
+ * 먹이주기를 선택하면 세 가지 먹이 중 하나를 직접 골라서 줄 수 있다.
+ * 캐릭터마다 좋아하는 먹이/무난한 먹이/싫어하는 먹이가 다르게 설정되어 있어서,
+ * 같은 "먹이주기"라도 어떤 먹이를 줬는지에 따라 반응(표정)과 성장치 보상이
+ * 크게 달라진다. FOOD_PREF[캐릭터idx][먹이idx] = 0(싫어함)/1(무난)/2(좋아함) */
+const FOOD_COUNT = 3;
+const FOOD_NAMES = ['과일','채소','간식'];
+const FOOD_PREF = [
+  [1, 2, 0], /* 몽글이: 과일 무난 · 채소 최애 · 간식 비선호 */
+  [1, 0, 2], /* 삐약이: 과일 무난 · 채소 비선호 · 간식 최애 */
+  [2, 1, 0], /* 동글이: 과일 최애 · 채소 무난 · 간식 비선호 */
+  [0, 1, 2]  /* 포롱이: 과일 비선호 · 채소 무난 · 간식 최애 */
+];
+const PREF_LABEL  = ['별로 안 좋아해요...', '무난하게 먹어요', '정말 좋아해요!'];
+const PREF_MOOD   = ['sad', 'eating', 'happy'];
+const PREF_HUNGER = [12, 28, 45];
+const PREF_GROWTH_MULT = [0.5, 1.0, 1.6];
+
+const BTN = Object.freeze({ NONE:'NONE', LEFT:'LEFT', RIGHT:'RIGHT', CENTER:'CENTER', UP:'UP', DOWN:'DOWN', RESET:'RESET' });
+const MG_BTN_POOL = [BTN.UP, BTN.LEFT, BTN.CENTER, BTN.RIGHT, BTN.DOWN];
+const MG_LABEL_BY_BTN = { [BTN.UP]:'W', [BTN.LEFT]:'A', [BTN.CENTER]:'S', [BTN.RIGHT]:'D', [BTN.DOWN]:'X' };
+
+const UPDOWN_AVAILABILITY = {
+  [STATE.IDLE]:           { up:false, down:true  },
+  [STATE.STATUS]:         { up:true,  down:false },
+  [STATE.INTERACT_MENU]:  { up:false, down:true  },
+  [STATE.PLAY_SELECT]:    { up:true,  down:true  },
+  [STATE.FOOD_SELECT]:    { up:true,  down:false },
+  [STATE.MINIGAME_SHOW]:  { up:true,  down:true  },
+  [STATE.MINIGAME_INPUT]: { up:true,  down:true  }
+};
+function getUpDownAvailability(){ return UPDOWN_AVAILABILITY[g.state] || { up:false, down:false }; }
+
+/* ---------------- 게임 컨텍스트 ---------------- */
+let g = {};
+
+function initContext(){
+  g = {
+    state: STATE.EGG,
+    character_idx: 0,
+    stage: 1,
+    growth_gauge: 0,
+    hunger: STAT_START, clean: STAT_START, energy: STAT_START,
+    menu_index: 0,
+    current_action: 0,
+    food_index: 0, last_food: 0, last_pref: 1,
+    anim_step: 0,
+    last_gain: 0,
+    mg_sequence: [], mg_length: 0, mg_show_index: 0, mg_input_index: 0,
+    mg_success: 0, mg_round: 1, mg_rounds_cleared: 0, mg_total_gain: 0,
+    pet_mash_gauge: 0, pet_mash_ticks_left: 0, pet_mash_last_btn: BTN.NONE, last_pet_mash: 0,
+    wash_bubble_ticks_left: 0, wash_bubbles: [],
+    play_select_index: 0,
+    dino_y: 0, dino_vy: 0, dino_jumping: false, dino_obstacles: [], dino_score: 0, dino_score_frame: 0,
+    dino_spawn_timer: DINO_SPAWN_MIN, dino_alive: true, dino_final_score: 0
+  };
+}
+
+function changeState(newState){ g.state = newState; g.anim_step = 0; }
+
+function mapKeyToButton(key){
+  switch(key.toLowerCase()){
+    case 'a': return BTN.LEFT;
+    case 'd': return BTN.RIGHT;
+    case 's': case ' ': return BTN.CENTER;
+    case 'w': return BTN.UP;
+    case 'x': return BTN.DOWN;
+    case 'q': return BTN.RESET;
+    default: return BTN.NONE;
+  }
+}
+
+/* ============================================================================
+ * 로직 (update_*) — DOM/캔버스를 절대 건드리지 않는 순수 함수들 (변경 없음)
+ * ==========================================================================*/
+function addGrowth(amount){
+  g.last_gain = amount;
+  g.growth_gauge = Math.min(g.growth_gauge + amount, GAUGE_MAX);
+}
+function clampStat(v){ return Math.max(0, Math.min(STAT_MAX, v)); }
+
+function stageGoal(){ return [GAUGE_STAGE1_GOAL, GAUGE_STAGE2_GOAL, GAUGE_STAGE3_GOAL][g.stage - 1]; }
+function isGrowthPending(){ return g.growth_gauge >= stageGoal(); }
+function isCareOk(){ return g.hunger >= CARE_MIN_TO_GROW && g.clean >= CARE_MIN_TO_GROW && g.energy >= CARE_MIN_TO_GROW; }
+
+function nextStateAfterGaugeCheck(){
+  if(!isCareOk() || g.growth_gauge < stageGoal()) return STATE.IDLE;
+  if(g.stage === 1) return STATE.GROWTH_1;   /* 아기 -> 어린이 연출 */
+  if(g.stage === 2) return STATE.GROWTH_2;   /* 어린이 -> 어른 연출 */
+  return STATE.ENDING;                        /* 어른 -> 완전 성장 */
+}
+
+const CARE_TARGET_STAT = { [ACT.FEED]:'hunger', [ACT.WASH]:'clean', [ACT.SLEEP]:'energy' };
+
+function performCareAction(action){
+  const isSpecialty = CHAR_SPECIALTY[g.character_idx] === action;
+  const statName = CARE_TARGET_STAT[action];
+  if(statName){
+    const before = g[statName];
+    g[statName] = clampStat(g[statName] + (isSpecialty ? 40 : 28));
+    for(const key of ['hunger','clean','energy']){ if(key !== statName) g[key] = clampStat(g[key] - 4); }
+    let gain = (before < 50) ? 14 : 6;
+    if(isSpecialty) gain += 4;
+    addGrowth(gain);
+  } else {
+    g.hunger = clampStat(g.hunger + 4); g.clean = clampStat(g.clean + 4); g.energy = clampStat(g.energy + 4);
+    addGrowth(isSpecialty ? 12 : 8);
+  }
+}
+
+/* 먹이주기 전용: 세 가지 먹이 중 고른 것과 캐릭터의 호불호(FOOD_PREF)에 따라
+ * 포만감 회복량과 성장치 보상이 달라진다. 좋아하는 먹이는 크게, 싫어하는
+ * 먹이는 절반 이하로 깎인다 — performCareAction과 별개의 경로로 둬서
+ * "먹이 선택"이라는 새 상호작용 단계가 로직에 자연스럽게 끼어들게 한다. */
+function performFeedAction(foodIdx){
+  const pref = FOOD_PREF[g.character_idx][foodIdx];
+  const isSpecialty = CHAR_SPECIALTY[g.character_idx] === ACT.FEED;
+  const before = g.hunger;
+  g.hunger = clampStat(g.hunger + PREF_HUNGER[pref]);
+  g.clean = clampStat(g.clean - 4); g.energy = clampStat(g.energy - 4);
+  let gain = Math.round(((before < 50) ? 14 : 6) * PREF_GROWTH_MULT[pref]);
+  if(isSpecialty) gain += 4;
+  addGrowth(gain);
+  g.last_food = foodIdx;
+  g.last_pref = pref;
+  g.current_action = ACT.FEED;
+  changeState(STATE.ACTION_RESULT);
+}
+
+/* 씻기기: 스탯/성장치 반영은 즉시 끝내고(performCareAction), 3초짜리 거품
+ * 연출만 자동으로 재생한 뒤 ACTION_RESULT로 넘어간다. 시간이 지나면 저절로
+ * 다음 화면으로 넘어가는 유일한 예외 구간이라, tick 카운트다운은 draw_screen이
+ * 아니라 별도의 handleAnimTimers()에서 처리한다 (아래 이벤트 처리 섹션 참고). */
+function startWashBubble(){
+  g.wash_bubble_ticks_left = WASH_BUBBLE_TICKS;
+  /* 방울마다 무작위 가로 위치·크기·시작 위상·상승 속도를 새로 뽑아서, 씻길
+   * 때마다(그리고 방울 하나하나가) 매번 다르게 생성되도록 한다. */
+  g.wash_bubbles = [];
+  const bubbleCount = 9;
+  for(let i=0;i<bubbleCount;i++){
+    g.wash_bubbles.push({
+      xRatio: Math.random(),                 /* 0~1: 크리처 주변 폭 안에서의 가로 위치 */
+      size: 3 + Math.floor(Math.random()*4), /* 3~6px 크기 */
+      phase: Math.floor(Math.random()*36),   /* 상승 주기 내 무작위 시작 지점 */
+      speed: 1 + Math.floor(Math.random()*2) /* 상승 속도 1~2 */
+    });
+  }
+  changeState(STATE.WASH_BUBBLE);
+}
+
+/* 쓰다듬기: [A]/[D]를 번갈아 눌러(연타) 게이지를 채우는 미니 상호작용.
+ * 같은 버튼을 연속으로 눌러도 게이지가 오르지 않고, 직전과 다른 버튼을 눌러야만
+ * 오르게 해서 실제 "번갈아 연타"를 유도한다. 제한시간(3초) 안에 채운 만큼
+ * 성장치 보상이 비례해서 커진다. */
+function startPetMash(){
+  g.pet_mash_gauge = 0;
+  g.pet_mash_ticks_left = PET_MASH_TICKS;
+  g.pet_mash_last_btn = BTN.NONE;
+  changeState(STATE.PET_MASH);
+}
+function updatePetMash(btn){
+  if(btn !== BTN.LEFT && btn !== BTN.RIGHT) return;
+  if(btn !== g.pet_mash_last_btn){
+    g.pet_mash_gauge = Math.min(PET_MASH_GAUGE_MAX, g.pet_mash_gauge + PET_MASH_STEP);
+    g.pet_mash_last_btn = btn;
+  }
+  if(g.pet_mash_gauge >= PET_MASH_GAUGE_MAX) performPetAction(g.pet_mash_gauge);
+}
+function performPetAction(mashGauge){
+  const isSpecialty = CHAR_SPECIALTY[g.character_idx] === ACT.PET;
+  g.hunger = clampStat(g.hunger + 4); g.clean = clampStat(g.clean + 4); g.energy = clampStat(g.energy + 4);
+  const ratio = mashGauge / PET_MASH_GAUGE_MAX;
+  let gain = Math.round(8 + ratio * 16); /* 게이지 0%->8, 100%->24 */
+  if(isSpecialty) gain += 4;
+  addGrowth(gain);
+  g.last_pet_mash = mashGauge;
+  g.current_action = ACT.PET;
+  changeState(STATE.ACTION_RESULT);
+}
+
+/* 놀아주기: 두 미니게임(기억력 게임 / 달리기 게임) 중 하나를 고르는 서브메뉴.
+ * 기존 INTERACT_MENU와 달리 여기선 W/X 모두 정상적으로 메뉴 이동에 쓰인다. */
+function updatePlaySelect(btn){
+  if(btn === BTN.UP)         g.play_select_index = (g.play_select_index + PLAY_GAME_COUNT - 1) % PLAY_GAME_COUNT;
+  else if(btn === BTN.DOWN)  g.play_select_index = (g.play_select_index + 1) % PLAY_GAME_COUNT;
+  else if(btn === BTN.LEFT)  changeState(STATE.INTERACT_MENU); /* 취소하고 메뉴로 복귀 */
+  else if(btn === BTN.CENTER){
+    if(g.play_select_index === 0) minigameStart();
+    else startDinoRun();
+  }
+}
+
+/* ---------------- 달리기 게임 (크롬 다이노 게임 오마주) ----------------
+ * 자동으로 스크롤되는 장애물을 점프로 피하는 러너형 미니게임. 이 프로젝트의
+ * 다른 로직은 전부 버튼 입력에만 반응하지만, 러너 게임은 성격상 시간이
+ * 흘러야 진행되므로 WASH_BUBBLE/PET_MASH와 같은 방식으로 handleAnimTimers()
+ * 에서 매 tick마다 updateDinoTick()을 호출해 물리/장애물/충돌을 갱신한다.
+ * 버튼 입력(점프)은 기존과 동일하게 updateDinoRun()이 이벤트로 처리한다. */
+function startDinoRun(){
+  g.dino_y = 0; g.dino_vy = 0; g.dino_jumping = false;
+  g.dino_obstacles = [];
+  g.dino_score = 0;
+  g.dino_score_frame = 0; /* 점수 증가 속도를 늦추기 위한 프레임 카운터 */
+  g.dino_alive = true;
+  g.dino_spawn_timer = DINO_SPAWN_MIN;
+  changeState(STATE.DINO_RUN);
+}
+function updateDinoRun(btn){
+  if((btn === BTN.CENTER || btn === BTN.UP) && !g.dino_jumping && g.dino_alive){
+    g.dino_jumping = true;
+    g.dino_vy = -DINO_JUMP_FORCE;
+  }
+}
+function endDinoRun(){
+  const isSpecialty = CHAR_SPECIALTY[g.character_idx] === ACT.PLAY;
+  let gain = Math.min(30, 8 + Math.floor(g.dino_score / 12));
+  if(isSpecialty) gain += 4;
+  addGrowth(gain);
+  g.last_gain = gain;
+  g.energy = clampStat(g.energy - 4); g.hunger = clampStat(g.hunger - 2);
+  g.dino_final_score = g.dino_score;
+  g.dino_alive = false;
+  changeState(STATE.DINO_RESULT);
+}
+function updateDinoTick(){
+  if(!g.dino_alive) return;
+  if(g.dino_jumping){
+    g.dino_vy += DINO_GRAVITY;
+    g.dino_y += g.dino_vy;
+    if(g.dino_y >= 0){ g.dino_y = 0; g.dino_vy = 0; g.dino_jumping = false; }
+  }
+  const speed = DINO_BASE_SPEED + Math.floor(g.dino_score / DINO_SPEEDUP_EVERY);
+  g.dino_obstacles.forEach(o => { o.x -= speed; });
+  g.dino_obstacles = g.dino_obstacles.filter(o => o.x + o.w > -2);
+  g.dino_spawn_timer--;
+  if(g.dino_spawn_timer <= 0){
+    const h = 6 + Math.floor(Math.random()*4);
+    g.dino_obstacles.push({ x: OLED_W, w: 4, h });
+    g.dino_spawn_timer = DINO_SPAWN_MIN + Math.floor(Math.random()*DINO_SPAWN_VAR);
+  }
+  /* 점수 증가 속도 감소: 매 tick마다 올리지 않고 3틱에 한 번만 올린다
+   * (장애물 스크롤/점프 물리는 그대로 두고 점수만 천천히 오르게 함) */
+  g.dino_score_frame++;
+  if(g.dino_score_frame % 3 === 0) g.dino_score++;
+
+  const dinoBoxY = DINO_GROUND_Y - DINO_H + g.dino_y;
+  for(const o of g.dino_obstacles){
+    const obsBoxY = DINO_GROUND_Y - o.h;
+    const overlapX = DINO_X < o.x + o.w && DINO_X + DINO_W > o.x;
+    const overlapY = dinoBoxY < obsBoxY + o.h && dinoBoxY + DINO_H > obsBoxY;
+    if(overlapX && overlapY){ endDinoRun(); break; }
+  }
+}
+function updateDinoResult(){ changeState(nextStateAfterGaugeCheck()); }
+
+function minigameRoundLength(round){ return Math.min(MINIGAME_BASE_LEN + (round - 1), MINIGAME_MAX_LEN); }
+
+function minigameStartRound(){
+  g.mg_length = minigameRoundLength(g.mg_round);
+  g.mg_sequence = [];
+  for(let i=0;i<g.mg_length;i++) g.mg_sequence.push(MG_BTN_POOL[Math.floor(Math.random() * MG_BTN_POOL.length)]);
+  g.mg_show_index = 0; g.mg_input_index = 0;
+  changeState(STATE.MINIGAME_SHOW);
+}
+function minigameStart(){
+  g.mg_round = 1; g.mg_rounds_cleared = 0; g.mg_total_gain = 0; g.mg_success = 0;
+  minigameStartRound();
+}
+
+function updateEgg(btn){
+  if(btn === BTN.LEFT)       g.character_idx = (g.character_idx + CHAR_COUNT - 1) % CHAR_COUNT;
+  else if(btn === BTN.RIGHT) g.character_idx = (g.character_idx + 1) % CHAR_COUNT;
+  else if(btn === BTN.CENTER) changeState(STATE.HATCHING);
+}
+function updateHatching(){
+  g.anim_step++;
+  if(g.anim_step >= HATCH_STEP_COUNT){ g.stage = 1; g.growth_gauge = 0; changeState(STATE.IDLE); }
+}
+function updateIdle(btn){
+  if(btn === BTN.CENTER){ g.menu_index = 0; changeState(STATE.INTERACT_MENU); }
+  else if(btn === BTN.DOWN){ changeState(STATE.STATUS); }
+}
+function updateStatus(btn){ if(btn === BTN.UP || btn === BTN.CENTER) changeState(STATE.IDLE); }
+
+function updateInteractMenu(btn){
+  /* W(UP)는 이 화면에서 비활성화 — 좌/우로만 메뉴를 넘긴다.
+   * X(DOWN)는 더 이상 메뉴를 넘기지 않고 기본 화면(IDLE)으로 바로 복귀한다. */
+  if(btn === BTN.LEFT)        g.menu_index = (g.menu_index + ACTION_NAMES.length - 1) % ACTION_NAMES.length;
+  else if(btn === BTN.RIGHT)  g.menu_index = (g.menu_index + 1) % ACTION_NAMES.length;
+  else if(btn === BTN.DOWN)   changeState(STATE.IDLE);
+  else if(btn === BTN.CENTER){
+    g.current_action = g.menu_index;
+    if(g.current_action === ACT.PLAY){ g.play_select_index = 0; changeState(STATE.PLAY_SELECT); }
+    else if(g.current_action === ACT.FEED){ g.food_index = 0; changeState(STATE.FOOD_SELECT); }
+    else if(g.current_action === ACT.PET) startPetMash();
+    else if(g.current_action === ACT.WASH){ performCareAction(ACT.WASH); startWashBubble(); }
+    else { performCareAction(g.current_action); changeState(STATE.ACTION_RESULT); }
+  }
+}
+function updateFoodSelect(btn){
+  if(btn === BTN.LEFT)        g.food_index = (g.food_index + FOOD_COUNT - 1) % FOOD_COUNT;
+  else if(btn === BTN.RIGHT)  g.food_index = (g.food_index + 1) % FOOD_COUNT;
+  else if(btn === BTN.UP)     changeState(STATE.INTERACT_MENU); /* 취소하고 메뉴로 복귀 */
+  else if(btn === BTN.CENTER) performFeedAction(g.food_index);
+}
+function updateActionResult(){ changeState(nextStateAfterGaugeCheck()); }
+function updateMinigameShow(){
+  if(g.mg_show_index < g.mg_length) g.mg_show_index++;
+  else changeState(STATE.MINIGAME_INPUT);
+}
+function updateMinigameInput(btn){
+  if(!MG_BTN_POOL.includes(btn)) return;
+  const isSpecialty = CHAR_SPECIALTY[g.character_idx] === ACT.PLAY;
+  if(btn === g.mg_sequence[g.mg_input_index]){
+    g.mg_input_index++;
+    if(g.mg_input_index >= g.mg_length){
+      g.mg_rounds_cleared++;
+      const roundGain = 6 + g.mg_round * 2 + (isSpecialty ? 2 : 0);
+      addGrowth(roundGain); g.mg_total_gain += roundGain;
+      g.energy = clampStat(g.energy - 3); g.hunger = clampStat(g.hunger - 2);
+      if(g.mg_round < MINIGAME_ROUND_COUNT){ g.mg_round++; minigameStartRound(); }
+      else {
+        g.mg_success = 1;
+        const finalBonus = 10 + (isSpecialty ? 5 : 0);
+        addGrowth(finalBonus); g.mg_total_gain += finalBonus;
+        g.energy = clampStat(g.energy - 5);
+        changeState(STATE.MINIGAME_RESULT);
+      }
+    }
+  } else {
+    g.mg_success = 0; g.energy = clampStat(g.energy - 6);
+    changeState(STATE.MINIGAME_RESULT);
+  }
+}
+function updateMinigameResult(){ changeState(nextStateAfterGaugeCheck()); }
+
+function updateGrowth(stageNum){
+  g.anim_step++;
+  if(g.anim_step >= GROWTH_STEP_COUNT){
+    g.stage = stageNum + 1; g.growth_gauge = 0; changeState(STATE.IDLE);
+  }
+}
+
+function updateState(btn){
+  switch(g.state){
+    case STATE.EGG:             updateEgg(btn); break;
+    case STATE.HATCHING:        updateHatching(); break;
+    case STATE.IDLE:             updateIdle(btn); break;
+    case STATE.INTERACT_MENU:   updateInteractMenu(btn); break;
+    case STATE.FOOD_SELECT:     updateFoodSelect(btn); break;
+    case STATE.ACTION_RESULT:   updateActionResult(); break;
+    case STATE.MINIGAME_SHOW:   updateMinigameShow(); break;
+    case STATE.MINIGAME_INPUT:  updateMinigameInput(btn); break;
+    case STATE.MINIGAME_RESULT: updateMinigameResult(); break;
+    case STATE.GROWTH_1:        updateGrowth(1); break;
+    case STATE.GROWTH_2:        updateGrowth(2); break;
+    case STATE.ENDING:          break;
+    case STATE.STATUS:          updateStatus(btn); break;
+    case STATE.PET_MASH:        updatePetMash(btn); break;
+    case STATE.WASH_BUBBLE:     /* 버튼 입력을 받지 않고 타이머로만 자동 진행 */ break;
+    case STATE.PLAY_SELECT:     updatePlaySelect(btn); break;
+    case STATE.DINO_RUN:        updateDinoRun(btn); break;
+    case STATE.DINO_RESULT:     updateDinoResult(); break;
+  }
+}
+
+/* ============================================================================
+ * 픽셀 그리드 유틸 — 크리처 스프라이트를 "128x64 OLED 픽셀" 단위로 합성한다.
+ * 몸통은 1(켜짐)로 채우고, 눈/입은 0(꺼짐)으로 뚫어서 모노크롬 OLED에서
+ * 흔히 쓰는 "실루엣 + 잘라낸 이목구비" 기법으로 표정을 표현한다.
+ * ==========================================================================*/
+function newGrid(w,h){ return Array.from({length:h}, () => new Uint8Array(w)); }
+function gSet(g_,x,y,v=1){ x=Math.round(x); y=Math.round(y); if(y>=0 && y<g_.length && x>=0 && x<g_[0].length) g_[y][x]=v; }
+function gCircle(g_,cx,cy,r,v=1){ for(let y=-r;y<=r;y++) for(let x=-r;x<=r;x++) if(x*x+y*y<=r*r+0.6) gSet(g_,cx+x,cy+y,v); }
+function gEllipse(g_,cx,cy,rx,ry,v=1){ for(let y=-ry;y<=ry;y++) for(let x=-rx;x<=rx;x++) if((x*x)/(rx*rx)+(y*y)/(ry*ry)<=1.05) gSet(g_,cx+x,cy+y,v); }
+function gRect(g_,x,y,w,h,v=1){ for(let j=0;j<h;j++) for(let i=0;i<w;i++) gSet(g_,x+i,y+j,v); }
+
+/* ---------------- 스테이지별 스프라이트 캔버스 크기 (아기/어린이/어른) ---------------- */
+const STAGE_DIMS = [ {w:15,h:14}, {w:21,h:19}, {w:28,h:24} ];
+
+/* 포롱이(species idx 3)는 사용자가 픽셀 그리드로 직접 그려준 도안(30x37)을 그대로
+ * 쓰기 위해 다른 세 캐릭터보다 훨씬 큰 캔버스가 필요하다. 캐릭터마다 캔버스 크기를
+ * 다르게 쓸 수 있도록 종별 override를 두고, buildCreature()에서 이 override가 있으면
+ * 그것을, 없으면 기존 공용 STAGE_DIMS를 쓰도록 한다(기존 세 캐릭터는 완전히 그대로
+ * 유지됨). 아기/어린이 단계를 억지로 축소하면 원본 도안의 픽셀이 뭉개지므로, 세 단계
+ * 모두 원본 30x37 픽셀을 그대로 유지한다(그래서 포롱이는 아기 때부터 다른 종보다 큼). */
+const STAGE_DIMS_OVERRIDE = {
+  0: [ {w:16,h:16}, {w:20,h:21}, {w:26,h:27} ], /* 몽글이 새 도안 */
+  1: [ {w:16,h:13}, {w:20,h:19}, {w:26,h:27} ], /* 삐약이 새 도안 */
+  2: [ {w:16,h:15}, {w:20,h:17}, {w:26,h:25} ], /* 동글이 새 도안 */
+  3: [ {w:30,h:37}, {w:30,h:37}, {w:30,h:37} ]
+};
+function getStageDims(speciesIdx, stageIdx){
+  const override = STAGE_DIMS_OVERRIDE[speciesIdx];
+  return override ? override[stageIdx] : STAGE_DIMS[stageIdx];
+}
+
+/* 손으로 그린 픽셀 그리드 도안을 문자열 배열('#'=켜짐, '.'=꺼짐)로 그대로 옮겨 그리는
+ * 헬퍼. 다른 종은 gCircle/gEllipse/gRect 조합의 절차적 드로잉을 쓰지만, 포롱이는
+ * 사용자가 준 손그림 실루엣을 픽셀 단위로 그대로 재현해야 해서 이 방식을 쓴다. */
+function blitBitmap(gr, rows){
+  for(let y=0;y<rows.length;y++){
+    const row = rows[y];
+    for(let x=0;x<row.length;x++) if(row[x] === '#') gSet(gr,x,y,1);
+  }
+}
+
+/* 포롱이 도안(30x37) — 사용자가 준 원본은 회색/카키 두 색으로 채워진 실루엣이었지만,
+ * "전체 외곽선만 따고, 회색이었던 부분만 색칠"하도록 다시 만들었다: 카키였던 영역은
+ * 속이 빈 채 테두리만 남고, 회색이었던 영역만 그대로 solid하게 채워진다.
+ * 아기/어린이/어른 세 단계 모두 이 도안을 축소 없이 그대로 사용한다(원본 픽셀 유지
+ * 우선 — 그 결과 포롱이는 아기 때부터 다른 세 캐릭터의 어른 단계보다 크다). */
+const PORONGI_BITMAP = [
+  '..................###.........',
+  '................####..........',
+  '...............###############',
+  '..............#.##....#######.',
+  '..............#.....#.#####...',
+  '.............#.....##.###.....',
+  '.............#.#......###.....',
+  '.............#.#....##.###....',
+  '.............#.....#...###....',
+  '..............#.....#...##....',
+  '..............#.........##....',
+  '...............#.........##...',
+  '..###..........#.........##...',
+  '##...##.........#........##...',
+  '.#.....##.......#.........#...',
+  '.#......##.......#........#...',
+  '..#.....###......#........#...',
+  '...#..#####......#........#...',
+  '...#.#######.....#........#...',
+  '...#########...##.........#...',
+  '...#########...####........#..',
+  '...##########..##..........#..',
+  '...###########..#........###..',
+  '...#######.#######........##..',
+  '...#######.#######........##..',
+  '...#######.#########....###...',
+  '...###########.############...',
+  '....######.###..###########...',
+  '....#######################...',
+  '....#######################...',
+  '.....######################...',
+  '......##.#################....',
+  '.......###################....',
+  '.........################.....',
+  '............##############....',
+  '.............####......##.....',
+  '..............#...............'
+];
+
+/* ---------------- 몽글이/삐약이/동글이 리디자인 도안 (사용자 제공 3x3 손그림
+ * 이미지에서 추출) — 가로(행) 하나가 캐릭터 한 마리, 그 행의 3칸이 각각
+ * 아기/어린이/어른 성장 단계 도안이다. 포롱이와 마찬가지로 외곽선 실루엣을
+ * 그대로 픽셀 그리드로 옮겨 blitBitmap()으로 그린다. */
+const MONGL_BABY = [
+  '.......######...',
+  '......########..',
+  '......#...#..###',
+  '......#..##...##',
+  '......#..##..###',
+  '......#.....###.',
+  '.#####.......##.',
+  '#............##.',
+  '#...#####....##.',
+  '.#..##..##...##.',
+  '..#..#..##...##.',
+  '..##..####..##..',
+  '...##..##..##...',
+  '....##....##....',
+  '.....######.....',
+  '....##....###...',
+];
+const MONGL_CHILD = [
+  '.............####...',
+  '............#...##..',
+  '...........##....##.',
+  '...........##..#..##',
+  '...........##..#...#',
+  '...........##....###',
+  '...........##....##.',
+  '...........#.....##.',
+  '.##########......##.',
+  '##########.......##.',
+  '#................##.',
+  '.##.######.......##.',
+  '..##..###.#.#....##.',
+  '...##.####.#.#...##.',
+  '....##.#######...##.',
+  '.....########...##..',
+  '......##.......##...',
+  '.......#########....',
+  '.........##.##......',
+  '.........##.##......',
+  '.........##.##......',
+];
+/* 원본 손그림 3x3 도안(row1·col3 = 몽글이 어른)의 픽셀을 다시 세밀하게 대조하여
+ * 옮긴 버전. 들쭉날쭉한 선(두꺼운 날개 끝, 가는 다리획 등)을 임의로 다듬지 않고
+ * 원본 그대로 유지했다 — 이전에 "깔끔한 새" 형태로 새로 그렸던 버전은 폐기함. */
+const MONGL_ADULT = [
+  '......###......##...##....',
+  '.....#####.....###..##....',
+  '.##..##..##......###......',
+  '#######..##......#####....',
+  '##.####..##...##....##...#',
+  '##...###.###..###....##.##',
+  '##....##..##....##....#.##',
+  '##......#.##..#####....##.',
+  '##......####.#######...##.',
+  '##.......##..#.....#...###',
+  '.##.......###...#...###.##',
+  '.##.......##....##...##.##',
+  '..##......##....##..###.##',
+  '...##......#.......####.##',
+  '....##.............####.##',
+  '.....##............####.##',
+  '.#######...........####.##',
+  '.########..........####.##',
+  '.##.....#..........###.##.',
+  '.##...............####.##.',
+  '.##......##.....######.##.',
+  '.###.......######.##.##...',
+  '...#.......#####..##.##...',
+  '....#......##......###....',
+  '.....##....##.......#.....',
+  '.....#######..............',
+  '......#####...............',
+];
+const PPIYAK_BABY = [
+  '....#########...',
+  '.............#..',
+  '############..##',
+  '##.........#...#',
+  '.###.......#..#.',
+  '...###.....#.#..',
+  '......#...###...',
+  '#######......#..',
+  '##.........##.#.',
+  '.###...........#',
+  '...###.......###',
+  '......##....##..',
+  '........#####...',
+];
+const PPIYAK_CHILD = [
+  '..........####......',
+  '.........##...###...',
+  '..........###...####',
+  '..........##..#..###',
+  '..........##..#...#.',
+  '..........##...###..',
+  '..........##...##...',
+  '...........##...#...',
+  '........######...##.',
+  '###############...##',
+  '#......#.......#..##',
+  '##...##........#..##',
+  '.##..#..#......#..##',
+  '..####.##.....##..##',
+  '...##.##......#...##',
+  '....##########...##.',
+  '....##..........#...',
+  '.....##........#....',
+  '......#########.....',
+];
+const PPIYAK_ADULT = [
+  '............#######.......',
+  '............#######.......',
+  '...........##......##.....',
+  '...........##......##.....',
+  '...........##.##.##.#.....',
+  '...........##.##.##.#.....',
+  '...........##.##.##.#.....',
+  '...........##..#..#.######',
+  '...........##.......######',
+  '...........##...........##',
+  '...........##...........##',
+  '#############..........##.',
+  '##############......###...',
+  '##..........##......###...',
+  '##..........##......##....',
+  '.##.........##......##....',
+  '..##........##......##....',
+  '...##.......##......##....',
+  '....#########.......##....',
+  '....#########.......##....',
+  '....##............##......',
+  '.....##############.......',
+  '......#############.......',
+  '.........##.##..##........',
+  '.........##.##..##........',
+  '.......####.##..####......',
+  '.......####.##..####......',
+];
+const DONGL_BABY = [
+  '..........####..',
+  '.........#...##.',
+  '....###..#.##.#.',
+  '..###.##.#..#.#.',
+  '.##.#..###.####.',
+  '##########.##.#.',
+  '#.############.#',
+  '##############.#',
+  '######...#####.#',
+  '#.####...#####.#',
+  '#...############',
+  '.##.###########.',
+  '...###########..',
+  '.....##.#.#.....',
+  '....###..#.#....',
+];
+const DONGL_CHILD = [
+  '.............####...',
+  '...........##....#..',
+  '..........##...#..##',
+  '.........##....#...#',
+  '........##..#....##.',
+  '.......##...##...##.',
+  '......##.....#...##.',
+  '.....##......#...##.',
+  '....##.......#...##.',
+  '....#........#...##.',
+  '...#........#....#..',
+  '.##..#######....##..',
+  '##.............#....',
+  '##............#.....',
+  '.##############.....',
+  '........##..#.......',
+  '........###.##......',
+];
+const DONGL_ADULT = [
+  '............##########....',
+  '............###########...',
+  '...........#.........###..',
+  '...........#.......##..##.',
+  '...........#...######..##.',
+  '...........#...#####...##.',
+  '...........#...##...##..##',
+  '...........#...###..######',
+  '...........#....##...####.',
+  '............##....##......',
+  '............##....##......',
+  '.............##....##.....',
+  '###...........###...###...',
+  '###.....#..######....##...',
+  '##.###.##..######.....##..',
+  '##..#######...........##..',
+  '##...###.##............##.',
+  '##.....##..##.....##....##',
+  '###....######....##.....##',
+  '.##..##.##########......##',
+  '...##.##.##.............##',
+  '...##.##.##............##.',
+  '.....##.#..##........##...',
+  '.....##################...',
+  '......#####.#########.....',
+];
+
+/* ---------------- 캐릭터별(species) x 스테이지별 몸통 실루엣 ---------------- */
+const SPECIES_BODY = [
+  /* 0: 몽글이 — 손그림 도안 리디자인: 아기 병아리 → 서 있는 새 → 날개 펼친 어른새 */
+  [
+    (g_)=>{ blitBitmap(g_, MONGL_BABY); },
+    (g_)=>{ blitBitmap(g_, MONGL_CHILD); },
+    (g_)=>{ blitBitmap(g_, MONGL_ADULT); }
+  ],
+  /* 1: 삐약이 — 손그림 도안 리디자인: 날갯짓 아기 → 웅크린 오리 → 서 있는 오리 */
+  [
+    (g_)=>{ blitBitmap(g_, PPIYAK_BABY); },
+    (g_)=>{ blitBitmap(g_, PPIYAK_CHILD); },
+    (g_)=>{ blitBitmap(g_, PPIYAK_ADULT); }
+  ],
+  /* 2: 동글이 — 손그림 도안 리디자인: 둥지 속 아기 → 단정한 새 → 백조 목 어른새 */
+  [
+    (g_)=>{ blitBitmap(g_, DONGL_BABY); },
+    (g_)=>{ blitBitmap(g_, DONGL_CHILD); },
+    (g_)=>{ blitBitmap(g_, DONGL_ADULT); }
+  ],
+  /* 3: 포롱이 — 목을 길게 빼고 웅크려 앉은 새 모양의 손그림 도안(사용자 제공 픽셀
+   * 그리드). 축소 시 원본 픽셀이 뭉개지는 것을 피하기 위해 아기/어린이/어른 세 단계
+   * 모두 같은 30x37 원본을 그대로 사용한다. */
+  [
+    (g_)=>{ blitBitmap(g_, PORONGI_BITMAP); },
+    (g_)=>{ blitBitmap(g_, PORONGI_BITMAP); },
+    (g_)=>{ blitBitmap(g_, PORONGI_BITMAP); }
+  ]
+];
+
+/* ---------------- 캐릭터별 x 스테이지별 눈/입 기준 좌표 ----------------
+ * 몽글이/삐약이/동글이(0~2)는 이제 손그림 도안 자체에 눈이 이미 그려져 있어서
+ * (FACE_STYLE 'none') 이 좌표들은 실제로 사용되지 않지만, buildCreature()가
+ * 배열 인덱싱을 하므로 자리만 채워둔다. */
+const FACE_CFG = [
+  [ {cx:7,eyeY:6,gap:2,mouthY:9},  {cx:10,eyeY:8,gap:3,mouthY:12}, {cx:13,eyeY:11,gap:4,mouthY:16} ],
+  [ {cx:7,eyeY:6,gap:2,mouthY:9},  {cx:9, eyeY:8,gap:3,mouthY:11}, {cx:12,eyeY:11,gap:4,mouthY:14} ],
+  [ {cx:7,eyeY:6,gap:2,mouthY:9},  {cx:10,eyeY:8,gap:3,mouthY:12}, {cx:13,eyeY:11,gap:4,mouthY:16} ],
+  /* 포롱이: 세 단계 모두 같은 30x37 도안을 그대로 쓰므로 얼굴 좌표도 동일하게 사용 */
+  [ {cx:18,eyeY:6,gap:3,mouthY:9}, {cx:18,eyeY:6,gap:3,mouthY:9}, {cx:18,eyeY:6,gap:3,mouthY:9} ]
+];
+const HAS_MOUTH = [true, false, true, true]; /* 삐약이는 부리가 곧 입 역할이라 입을 따로 뚫지 않음 */
+/* 얼굴 표현 방식: 'punch'는 꽉 찬 실루엣에 눈/입 모양대로 0(꺼짐)을 뚫어서
+ * 표현하는 기존 방식. 'draw'는 속이 빈 실루엣 위에 1(켜짐) 점을 찍는 방식
+ * (포롱이). 'none'은 도안 자체에 이미 눈/표정이 그려져 있어 별도로 얼굴을
+ * 덧그리지 않는 방식 — 몽글이/삐약이/동글이의 새 손그림 도안이 여기 해당한다. */
+const FACE_STYLE = ['none', 'none', 'none', 'draw'];
+
+const BLINK_PERIOD = 26;  /* 애니메이션 tick 기준 주기 (약 4초) */
+const BLINK_LEN = 2;
+
+/* mood: 'idle' | 'happy' | 'sad' | 'sleep' | 'eating'
+ * faceStyle: 'punch'(기본, 꽉 찬 실루엣에 구멍을 뚫음) | 'draw'(빈 실루엣 위에 점을 찍음) */
+function applyFace(gr, cfg, mood, tick, hasMouth, faceStyle='punch'){
+  if(faceStyle === 'none') return; /* 도안 자체에 눈/표정이 이미 그려져 있음 (몽글이/삐약이/동글이 새 도안) */
+  const { cx, eyeY, gap, mouthY } = cfg;
+  const v = faceStyle === 'draw' ? 1 : 0;
+  const lx = cx - gap, rx = cx + gap;
+  const blinkNow = (mood === 'idle') && (tick % BLINK_PERIOD < BLINK_LEN);
+
+  if(mood === 'sleep' || blinkNow){
+    gSet(gr,lx-1,eyeY,v); gSet(gr,lx,eyeY,v);
+    gSet(gr,rx-1,eyeY,v); gSet(gr,rx,eyeY,v);
+  } else if(mood === 'happy'){
+    gSet(gr,lx-1,eyeY+1,v); gSet(gr,lx,eyeY,v);
+    gSet(gr,rx,eyeY,v);     gSet(gr,rx+1,eyeY+1,v);
+  } else if(mood === 'sad'){
+    gSet(gr,lx-1,eyeY,v); gSet(gr,lx,eyeY+1,v);
+    gSet(gr,rx,eyeY+1,v); gSet(gr,rx+1,eyeY,v);
+  } else {
+    gSet(gr,lx,eyeY,v); gSet(gr,lx,eyeY+1,v);
+    gSet(gr,rx,eyeY,v); gSet(gr,rx,eyeY+1,v);
+  }
+
+  if(!hasMouth) return;
+  if(mood === 'eating'){
+    const open = Math.floor(tick/2) % 2 === 0;
+    if(open) gRect(gr,cx-1,mouthY,2,2,v);
+    else { gSet(gr,cx-1,mouthY,v); gSet(gr,cx,mouthY,v); }
+  } else if(mood === 'happy'){
+    gSet(gr,cx-1,mouthY,v); gSet(gr,cx,mouthY+1,v); gSet(gr,cx+1,mouthY,v);
+  } else if(mood === 'sad'){
+    gSet(gr,cx-1,mouthY+1,v); gSet(gr,cx,mouthY,v); gSet(gr,cx+1,mouthY+1,v);
+  } else if(mood === 'sleep'){
+    gRect(gr,cx-1,mouthY,2,1,v);
+  } else {
+    gSet(gr,cx-1,mouthY,v); gSet(gr,cx,mouthY,v); gSet(gr,cx+1,mouthY,v);
+  }
+}
+
+/* stageIdx: 0=아기,1=어린이,2=어른 */
+function buildCreature(speciesIdx, stageIdx, mood, tick){
+  const dims = getStageDims(speciesIdx, stageIdx);
+  const gr = newGrid(dims.w, dims.h);
+  SPECIES_BODY[speciesIdx][stageIdx](gr);
+  applyFace(gr, FACE_CFG[speciesIdx][stageIdx], mood, tick, HAS_MOUTH[speciesIdx], FACE_STYLE[speciesIdx]);
+  return gr;
+}
+
+/* 세 스탯 중 가장 낮은 값을 기준으로 기분을 판정 -> draw mood로 매핑 */
+function petMood(){
+  const lowest = Math.min(g.hunger, g.clean, g.energy);
+  if(lowest >= 60) return 'happy';
+  if(lowest >= 30) return 'idle';
+  return 'sad';
+}
+const MOOD_LABEL = { happy:'행복해해요', idle:'그럭저럭이에요', sad:'많이 힘들어해요' };
+
+/* ---------------- 알(egg) 스프라이트 — 종별로 속 무늬만 다르게 ---------------- */
+function buildEgg(speciesIdx, crackLevel){
+  const gr = newGrid(13, 15);
+  gEllipse(gr, 6, 8, 6, 6.5, 1);
+  if(speciesIdx === 0) gCircle(gr,6,8,1,0);
+  else if(speciesIdx === 1) { gCircle(gr,6,8,2,0); gCircle(gr,6,8,1,1); }
+  else { for(let a=0;a<360;a+=72){ const r=a*Math.PI/180; gSet(gr,6+Math.round(Math.cos(r)*2),8+Math.round(Math.sin(r)*2),0); } }
+  /* 균열 단계에 따라 지그재그 선을 뚫어 깨짐을 표현 */
+  if(crackLevel >= 1){ gSet(gr,4,4,0); gSet(gr,5,5,0); gSet(gr,4,6,0); }
+  if(crackLevel >= 2){ gSet(gr,8,3,0); gSet(gr,9,4,0); gSet(gr,8,5,0); gSet(gr,9,6,0); }
+  if(crackLevel >= 3){ gSet(gr,3,9,0); gSet(gr,4,10,0); gSet(gr,10,9,0); gSet(gr,9,10,0); }
+  return gr;
+}
+
+/* ---------------- 먹이 아이콘 (과일/채소/간식) — 아주 작은 11x11 그리드 ---------------- */
+function buildFoodIcon(foodIdx){
+  const gr = newGrid(11, 11);
+  if(foodIdx === 0){ /* 과일 (사과) */
+    gCircle(gr, 5, 6, 4, 1);
+    gRect(gr, 5, 1, 1, 2, 1);   /* 꼭지 */
+    gSet(gr, 7, 5, 0);          /* 하이라이트 홈 */
+  } else if(foodIdx === 1){ /* 채소 (당근) */
+    for(let row = 0; row < 8; row++){
+      const w = Math.max(1, 4 - Math.floor(row/2));
+      gRect(gr, 5 - Math.floor(w/2), 2 + row, w, 1, 1);
+    }
+    gRect(gr, 4, 0, 1, 2, 1); gRect(gr, 6, 0, 1, 2, 1); /* 잎 */
+  } else { /* 간식 (쿠키) */
+    gCircle(gr, 5, 6, 4, 1);
+    gSet(gr, 3, 4, 0); gSet(gr, 6, 5, 0); gSet(gr, 4, 8, 0); gSet(gr, 7, 7, 0); /* 초코칩 */
+  }
+  return gr;
+}
+
+/* ============================================================================
+ * 캔버스 드로잉 헬퍼 — 이 섹션만 나중에 Adafruit_GFX/SSD1306 호출
+ * (display.drawPixel / fillRect / setCursor+print)로 교체하면 아두이노로 이식됨
+ * ==========================================================================*/
+/* ----------------------------------------------------------------------------
+ * 해상도 안내: 논리적으로는 여전히 "128x64 OLED 픽셀" 좌표계로 그림을 그리지만,
+ * 캔버스 실제 드로잉 버퍼는 SCALE배(3배 = 384x192)로 키워서 사용한다.
+ * 이유: 사각형(fillRect) 기반 픽셀아트는 128x64로 그려도 블록이 또렷하지만,
+ * 한글 텍스트(ctx.fillText)는 안티앨리어싱된 회색 경계가 생기는데, 그 상태로
+ * CSS의 image-rendering:pixelated가 최근접 보간으로 3배 가까이 확대해버리면
+ * 그 회색 경계 픽셀들이 계단처럼 뭉개져 "글자가 깨지거나 흐려 보이는" 문제가
+ * 생긴다. 그래서 텍스트를 포함한 모든 것을 미리 3배 해상도로 그려두면,
+ * CSS 확대 배율이 훨씬 작아져서(거의 1:1) 글자 테두리가 뭉개지지 않는다.
+ * (사각형/스프라이트는 어차피 SCALE배로 그리므로 여전히 블록 픽셀아트로 보인다)
+ * ------------------------------------------------------------------------- */
+const OLED_W = 128, OLED_H = 64;
+const SCALE = 3;
+const COLOR_ON = '#86f7d6';
+const COLOR_OFF = '#060a08';
+const canvas = document.getElementById('oled');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+function clearOled(){ ctx.fillStyle = '#060a08'; ctx.fillRect(0,0,OLED_W*SCALE,OLED_H*SCALE); }
+function blit(grid, ox, oy){
+  ctx.fillStyle = COLOR_ON;
+  for(let y=0;y<grid.length;y++) for(let x=0;x<grid[0].length;x++)
+    if(grid[y][x]) ctx.fillRect((ox+x)*SCALE, (oy+y)*SCALE, SCALE, SCALE);
+}
+/* 배경이 이미 밝게 채워진 상자(선택된 먹이 칸 등) 위에 그릴 때 쓰는 반전 blit.
+ * 모노크롬 OLED에서 "밝은 배경 위의 어두운 실루엣"을 표현하는 표준 기법이다. */
+function blitInverted(grid, ox, oy){
+  ctx.fillStyle = COLOR_OFF;
+  for(let y=0;y<grid.length;y++) for(let x=0;x<grid[0].length;x++)
+    if(grid[y][x]) ctx.fillRect((ox+x)*SCALE, (oy+y)*SCALE, SCALE, SCALE);
+}
+/* 실루엣 주변 1픽셀을 배경색으로 먼저 밀어낸 뒤 그 위에 그린다. 알 조각처럼
+ * 겹쳐서 그려지는 다른 스프라이트와 캐릭터 사이에 1칸짜리 여백이 생겨서
+ * 배경(또는 겹치는 다른 그림)과 캐릭터가 또렷이 분리되어 보인다. */
+function blitHalo(grid, ox, oy){
+  ctx.fillStyle = COLOR_OFF;
+  for(let y=0;y<grid.length;y++){
+    for(let x=0;x<grid[0].length;x++){
+      if(!grid[y][x]) continue;
+      for(let dy=-1;dy<=1;dy++){
+        for(let dx=-1;dx<=1;dx++){
+          ctx.fillRect((ox+x+dx)*SCALE, (oy+y+dy)*SCALE, SCALE, SCALE);
+        }
+      }
+    }
+  }
+  blit(grid, ox, oy);
+}
+function pixelBorder(x,y,w,h){
+  ctx.fillStyle = COLOR_ON;
+  ctx.fillRect(x*SCALE, y*SCALE, w*SCALE, SCALE);
+  ctx.fillRect(x*SCALE, (y+h-1)*SCALE, w*SCALE, SCALE);
+  ctx.fillRect(x*SCALE, y*SCALE, SCALE, h*SCALE);
+  ctx.fillRect((x+w-1)*SCALE, y*SCALE, SCALE, h*SCALE);
+}
+function pixelFill(x,y,w,h){ ctx.fillStyle = COLOR_ON; ctx.fillRect(x*SCALE, y*SCALE, w*SCALE, h*SCALE); }
+function hline(x,y,w){ pixelFill(x,y,w,1); }
+function miniBar(x,y,w,h,value,max){
+  pixelBorder(x,y,w,h);
+  const inner = Math.max(0, w-2);
+  const filled = Math.round((value/max) * inner);
+  if(filled > 0) pixelFill(x+1,y+1,filled,h-2);
+}
+const FONT_STACK = "'Galmuri7', 'Galmuri9', monospace";
+function text(str,x,y,size=7,align='left'){
+  ctx.fillStyle = COLOR_ON;
+  ctx.font = `${Math.round(size*SCALE)}px ${FONT_STACK}`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = align;
+  ctx.fillText(str, x*SCALE, y*SCALE);
+}
+
+/* ---------------- 대기 통통 튀기 / 흔들림 오프셋 ---------------- */
+function bounceOffset(tick, amp=1, speed=6){ return Math.round(Math.sin(tick/speed) * amp); }
+function jitterOffset(tick, amp=1){ return (tick % 2 === 0) ? amp : -amp; }
+
+/* ============================================================================
+ * 화면별 draw_state_* — 상태 정보는 얇은 상단 바에, 크리처는 화면 중앙에
+ * 최대한 크게, 성격/특기 같은 보조 정보는 크리처 아래 짧게, 조작 안내는
+ * 하단 풋터에 배치한다. (알 선택 화면만 예외적으로 크리처보다 작게 그림)
+ * ==========================================================================*/
+function drawTopBar(label, size=8){
+  text(label, 3, 1, size, 'left');
+  hline(0, 10, OLED_W);
+}
+
+function drawStateEgg(tick){
+  drawTopBar('알 고르기');
+  const idx = g.character_idx;
+  const eggGrid = buildEgg(idx, 0);
+  const bx = Math.round(OLED_W/2 - eggGrid[0].length/2);
+  const by = 12; /* 알 선택 화면은 움직이지 않도록 고정(바운스 제거) */
+  blit(eggGrid, bx, by);
+
+  text(`< ${CHAR_NAMES[idx]} >`, OLED_W/2, 32, 9, 'center');
+  text(CHAR_DESC[idx], OLED_W/2, 44, 8, 'center');
+  text(`선호: ${ACTION_NAMES[CHAR_SPECIALTY[idx]]}`, OLED_W/2, 54, 8, 'center');
+}
+
+function drawStateHatching(tick){
+  drawTopBar('알이 부화하고 있어요...');
+  const idx = g.character_idx;
+  const crack = g.anim_step; /* 0~3 */
+  const fieldTop = 12, fieldBottom = OLED_H; /* 상단바 아래 남은 영역 전체를 기준으로 세로 중앙 정렬 */
+  if(crack < HATCH_STEP_COUNT - 1){
+    const eggGrid = buildEgg(idx, crack);
+    const shake = jitterOffset(tick, 2);
+    const bx = Math.round(OLED_W/2 - eggGrid[0].length/2) + shake;
+    const by = Math.round(fieldTop + (fieldBottom - fieldTop - eggGrid.length)/2);
+    blitHalo(eggGrid, bx, by);
+  } else {
+    /* 마지막 단계: 알 사이로 아기 크리처가 살짝 비친다.
+     * 알 조각을 먼저 그리고, 아기는 1픽셀 여백을 두는 blitHalo로 나중에 덮어
+     * 그려서 겹치는 알 조각·배경과 또렷하게 분리되어 보이게 한다. */
+    const babyGrid = buildCreature(idx, 0, 'happy', tick);
+    const by = Math.round(fieldTop + (fieldBottom - fieldTop - babyGrid.length)/2) + bounceOffset(tick,1,5);
+    const bx = Math.round(OLED_W/2 - babyGrid[0].length/2);
+    const eggTop = buildEgg(idx, 3);
+    blit(eggTop, Math.round(OLED_W/2 - 6), by - 8);
+    blitHalo(babyGrid, bx, by);
+  }
+}
+
+function drawStateIdle(tick){
+  const stageIdx = g.stage - 1;
+  text(`STAGE ${g.stage}·${STAGE_NAMES[stageIdx]} ${CHAR_NAMES[g.character_idx]}`, 3, 1, 8, 'left');
+  hline(0,10,OLED_W);
+  miniBar(3, 11, OLED_W-6, 4, g.growth_gauge, GAUGE_MAX);
+
+  const mood = petMood();
+  const cGrid = buildCreature(g.character_idx, stageIdx, mood, tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const by = Math.round(17 + (36 - cGrid.length)/2) + bounceOffset(tick, mood==='happy'?2:1, mood==='happy'?4:7);
+  blit(cGrid, bx, by);
+
+  if(isGrowthPending() && !isCareOk()) text('성장 준비! 돌봄을 채워요', OLED_W/2, 55, 9, 'center');
+  else text(MOOD_LABEL[mood], OLED_W/2, 55, 9, 'center');
+}
+
+function drawStateStatus(tick){
+  drawTopBar(`상세정보 · ${g.stage}단계(${STAGE_NAMES[g.stage-1]})`);
+  const idx = g.character_idx;
+  const cGrid = buildCreature(idx, g.stage-1, 'idle', tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const areaTop = 11, areaBottom = 34; /* 상단바 ~ 이름 텍스트 사이 여백을 세로 중앙 기준으로 배치 */
+  const by = Math.round(areaTop + (areaBottom - areaTop - cGrid.length)/2) + bounceOffset(tick,1,7);
+  blit(cGrid, bx, by);
+
+  text(CHAR_NAMES[idx], OLED_W/2, 36, 8, 'center');
+  text(CHAR_DESC[idx], OLED_W/2, 43, 7, 'center');
+  text(`특기: ${ACTION_NAMES[CHAR_SPECIALTY[idx]]}`, OLED_W/2, 50, 7, 'center');
+
+  const bw = 28;
+  const gap2 = 4;
+  const gx = (i)=> 3 + i*(6+bw+gap2);
+  ['포','청','수'].forEach((lab,i)=> text(lab, gx(i), 57, 7));
+  miniBar(gx(0)+7, 57, bw, 6, g.hunger, STAT_MAX);
+  miniBar(gx(1)+7, 57, bw, 6, g.clean, STAT_MAX);
+  miniBar(gx(2)+7, 57, bw, 6, g.energy, STAT_MAX);
+}
+
+function drawStateInteractMenu(tick){
+  drawTopBar('무엇을 해줄까요?');
+  const specialty = CHAR_SPECIALTY[g.character_idx];
+  const startY = 14;
+  ACTION_NAMES.forEach((name,i)=>{
+    const marker = i === g.menu_index ? '▶' : ' ';
+    const star = i === specialty ? ' ★' : '';
+    text(`${marker} ${name}${star}`, 8, startY + i*9, 9, 'left');
+  });
+}
+
+/* 놀아주기를 고르면 나오는 서브메뉴: 기억력 게임 / 달리기 게임(다이노 오마주) */
+function drawStatePlaySelect(tick){
+  drawTopBar('어떤 놀이를 할까요?');
+  const startY = 18;
+  PLAY_GAME_NAMES.forEach((name,i)=>{
+    const marker = i === g.play_select_index ? '▶' : ' ';
+    text(`${marker} ${name}`, 10, startY + i*13, 9, 'left');
+  });
+}
+
+/* 먹이 3종 중 하나를 직접 골라서 준다. 어떤 걸 좋아하고 싫어하는지는 미리
+ * 알려주지 않고, 먹여본 뒤 ACTION_RESULT 화면의 반응으로 알게 된다 —
+ * 실제 다마고치처럼 "키워보며 취향을 알아가는" 재미를 위한 의도적 설계. */
+function drawStateFoodSelect(tick){
+  drawTopBar('먹이를 골라주세요');
+  const boxSize = 17, gap = 7;
+  const totalW = boxSize*FOOD_COUNT + gap*(FOOD_COUNT-1);
+  const startX = Math.round(OLED_W/2 - totalW/2);
+  const boxY = OLED_H - boxSize - 5;
+
+  /* 크리처를 상단바~먹이칸 사이 공간의 세로 중앙에 배치해서 예전보다 조금 아래로 내린다. */
+  const cGrid = buildCreature(g.character_idx, g.stage-1, 'idle', tick);
+  const cbx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const fieldTop = 11, fieldBottom = boxY - 2;
+  const cby = Math.round(fieldTop + (fieldBottom - fieldTop - cGrid.length)/2) + bounceOffset(tick,1,7);
+  blit(cGrid, cbx, cby);
+
+  for(let i=0;i<FOOD_COUNT;i++){
+    const bx = startX + i*(boxSize+gap);
+    const active = i === g.food_index;
+    pixelBorder(bx, boxY, boxSize, boxSize);
+    if(active) pixelFill(bx+1, boxY+1, boxSize-2, boxSize-2);
+    const icon = buildFoodIcon(i);
+    const ix = bx + Math.round((boxSize - icon[0].length)/2);
+    const iy = boxY + Math.round((boxSize - icon.length)/2);
+    if(active) blitInverted(icon, ix, iy); else blit(icon, ix, iy);
+  }
+}
+
+function drawStateActionResult(tick){
+  let mood, headerMsg;
+  if(g.current_action === ACT.FEED){
+    mood = PREF_MOOD[g.last_pref];
+    headerMsg = `${FOOD_NAMES[g.last_food]}·${PREF_LABEL[g.last_pref]}(+${g.last_gain})`;
+  } else if(g.current_action === ACT.PET){
+    mood = 'happy';
+    headerMsg = `쓰다듬기 게이지 ${g.last_pet_mash}%! (+${g.last_gain})`;
+  } else {
+    const moodByAction = { [ACT.WASH]:'happy', [ACT.SLEEP]:'sleep' };
+    mood = moodByAction[g.current_action] || 'happy';
+    headerMsg = `${ACTION_DONE_MSG[g.current_action]} (+${g.last_gain})`;
+  }
+  drawTopBar(headerMsg, 7);
+  const cGrid = buildCreature(g.character_idx, g.stage-1, mood, tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const areaTop = 11, areaBottom = 64;
+  const by = Math.round(areaTop + (areaBottom - areaTop - cGrid.length)/2) + bounceOffset(tick, mood==='sleep'?0:2, 5);
+  blit(cGrid, bx, by);
+  if(mood === 'sleep'){
+    const zt = Math.floor(tick/3) % 3;
+    text('z', bx + cGrid[0].length + 2, by - 4 - zt*3, 8);
+  }
+}
+
+/* ---------------- 달리기 게임(다이노 오마주) 스프라이트/렌더링 ---------------- */
+/* 성장 단계와 무관하게 고정 크기인 작고 블록형인 러너 캐릭터. 크롬 다이노처럼
+ * 다리를 번갈아 움직이는 2프레임 걷기 애니메이션과, 점프 중엔 다리를 웅크린
+ * 포즈를 쓴다. */
+function buildDinoSprite(tick, jumping){
+  const gr = newGrid(9, 10);
+  gRect(gr, 1, 1, 6, 5, 1);   /* 몸통 */
+  gRect(gr, 5, 0, 3, 2, 1);   /* 머리 돌출부 */
+  gSet(gr, 7, 1, 0);          /* 눈 */
+  if(jumping){
+    gRect(gr, 1, 6, 2, 3, 1); gRect(gr, 5, 6, 2, 3, 1); /* 웅크린 다리 */
+  } else {
+    const frame = Math.floor(tick/3) % 2;
+    if(frame === 0){ gRect(gr, 1, 6, 2, 4, 1); gRect(gr, 5, 6, 2, 3, 1); }
+    else           { gRect(gr, 1, 6, 2, 3, 1); gRect(gr, 5, 6, 2, 4, 1); }
+  }
+  return gr;
+}
+
+function drawStateDinoRun(tick){
+  drawTopBar(`달리기 게임 · 점수 ${g.dino_score}`, 7);
+  hline(0, DINO_GROUND_Y, OLED_W);
+
+  const dinoGrid = buildDinoSprite(tick, g.dino_jumping);
+  const dy = DINO_GROUND_Y - dinoGrid.length + g.dino_y;
+  blitHalo(dinoGrid, DINO_X, dy);
+
+  g.dino_obstacles.forEach((o)=>{
+    pixelFill(Math.round(o.x), DINO_GROUND_Y - o.h, o.w, o.h);
+  });
+
+  text('S : 점프', OLED_W/2, 57, 7, 'center');
+}
+
+function drawStateDinoResult(tick){
+  drawTopBar('달리기 게임 결과');
+  const cGrid = buildCreature(g.character_idx, g.stage-1, 'happy', tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const by = Math.round(13 + (34 - cGrid.length)/2) + bounceOffset(tick,2,6);
+  blit(cGrid, bx, by);
+  text(`점수 ${g.dino_final_score}점! (+${g.last_gain})`, OLED_W/2, 55, 8, 'center');
+}
+
+/* 씻기기: 3초 동안 거품 방울이 크리처 주변에서 위로 떠오르는 연출을 반복한다.
+ * tick과 방울별 seed로만 위치를 계산하는 순수 함수라 상태(g)는 건드리지 않는다. */
+function drawStateWashBubble(tick){
+  drawTopBar('보글보글 씻는 중...');
+  const cGrid = buildCreature(g.character_idx, g.stage-1, 'happy', tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const by = Math.round(15 + (40 - cGrid.length)/2) + bounceOffset(tick,1,6);
+  blit(cGrid, bx, by);
+
+  /* 씻기 시작 시 무작위로 뽑아둔 방울 스펙(g.wash_bubbles)을 이용해 그린다.
+   * 작은 방울은 꽉 찬 점으로, 큰 방울은 테두리 + 하이라이트 점으로 그려서
+   * 속이 빈 비눗방울처럼 보이게 한다. */
+  const cycle = 36;
+  const spawnW = cGrid[0].length + 24;
+  g.wash_bubbles.forEach((bub)=>{
+    const riseTick = (tick*bub.speed + bub.phase) % cycle;
+    const px = bx - 12 + Math.round(bub.xRatio * spawnW);
+    const py = (by + cGrid.length + 4) - riseTick;
+    if(py > 12){
+      if(bub.size <= 3){
+        pixelFill(px, py, bub.size, bub.size);
+      } else {
+        pixelBorder(px, py, bub.size, bub.size);
+        pixelFill(px + 1, py + 1, 1, 1);
+      }
+    }
+  });
+}
+
+/* 쓰다듬기: [A]/[D]를 번갈아 눌러 채우는 게이지와 남은 시간을 보여준다. */
+function drawStatePetMash(tick){
+  drawTopBar('쓰다듬기! [A][D] 번갈아 연타!');
+  const cGrid = buildCreature(g.character_idx, g.stage-1, g.pet_mash_gauge>0 ? 'happy':'idle', tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const areaTop = 13, areaBottom = 38; /* 상단바 ~ 게이지% 텍스트 사이 여백을 세로 중앙 기준으로 배치 */
+  const by = Math.round(areaTop + (areaBottom - areaTop - cGrid.length)/2) + jitterOffset(tick, g.pet_mash_gauge > 0 ? 1 : 0);
+  blit(cGrid, bx, by);
+
+  const barX = 10, barY = 47, barW = OLED_W - 20, barH = 8;
+  miniBar(barX, barY, barW, barH, g.pet_mash_gauge, PET_MASH_GAUGE_MAX);
+  text(`${g.pet_mash_gauge}%`, OLED_W/2, barY - 9, 8, 'center');
+
+  const remainSec = Math.max(0, g.pet_mash_ticks_left * ANIM_TICK_MS / 1000);
+  text(`남은시간 ${remainSec.toFixed(1)}s`, OLED_W/2, 57, 7, 'center');
+}
+
+function drawMinigameCell(label, active, x, y){
+  pixelBorder(x,y,13,11);
+  if(active) pixelFill(x+1,y+1,11,9);
+  text(label, x+6, y+2, 7, 'center');
+  if(active){
+    ctx.fillStyle = COLOR_OFF;
+    ctx.font = `${7*SCALE}px ${FONT_STACK}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(label, (x+6)*SCALE, (y+2)*SCALE);
+  }
+}
+function drawMinigameGrid(activeBtn, cx, cy){
+  const cell = (btn,dx,dy) => drawMinigameCell(MG_LABEL_BY_BTN[btn], btn===activeBtn, cx+dx, cy+dy);
+  cell(BTN.UP, -6, -17);
+  cell(BTN.LEFT, -20, -3); cell(BTN.CENTER, -6, -3); cell(BTN.RIGHT, 8, -3);
+  cell(BTN.DOWN, -6, 11);
+}
+
+/* 라운드 표시(R1/4)는 좌측 상단 고정 위치에, 안내 문구는 그 아래 중앙에 배치한다. */
+function drawRoundIndicator(){
+  text(`R${g.mg_round}/${MINIGAME_ROUND_COUNT}`, 3, 1, 8, 'left');
+  hline(0, 10, OLED_W);
+}
+function drawStateMinigameShow(){
+  drawRoundIndicator();
+  text(`잘 보고 기억하세요! (암기 ${g.mg_length}칸)`, OLED_W/2, 12, 8, 'center');
+  const activeBtn = (g.mg_show_index < g.mg_length) ? g.mg_sequence[g.mg_show_index] : null;
+  drawMinigameGrid(activeBtn, OLED_W/2, 38);
+}
+function drawStateMinigameInput(){
+  drawRoundIndicator();
+  text(`순서대로 눌러보세요! (${g.mg_input_index}/${g.mg_length})`, OLED_W/2, 12, 8, 'center');
+  drawMinigameGrid(null, OLED_W/2, 38);
+}
+function drawStateMinigameResult(tick){
+  const mood = g.mg_success ? 'happy' : (g.mg_rounds_cleared>0 ? 'idle' : 'sad');
+  const msg = g.mg_success
+    ? `전 라운드 클리어!(+${g.mg_total_gain})`
+    : g.mg_rounds_cleared>0 ? `${g.mg_rounds_cleared}라운드 성공(+${g.mg_total_gain})`
+    : `다음엔 더 잘해봐요(+${g.mg_total_gain})`;
+  drawTopBar('미니게임 결과');
+  const cGrid = buildCreature(g.character_idx, g.stage-1, mood, tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  /* 라운드 종료 시 크리처를 상단바와 결과 메시지 사이 영역 정중앙에 배치 */
+  const areaTop = 11, areaBottom = 52;
+  const by = Math.round(areaTop + (areaBottom - areaTop - cGrid.length)/2) + bounceOffset(tick, mood==='happy'?2:1, 6);
+  blit(cGrid, bx, by);
+  text(msg, OLED_W/2, 55, 9, 'center');
+}
+
+/* 진화 연출: 이전 스테이지 크리처가 반짝이며 흔들리다가, 마지막 단계에서
+ * 다음 스테이지 크리처로 "짜잔" 드러난다. 버튼을 눌러야만 다음 단계로
+ * 넘어가는 것은 그대로이고(update_growth), 반짝임 자체는 표정 타이머로 그린다. */
+function drawStateGrowth(stageNum, tick){
+  const fromIdx = stageNum - 1, toIdx = stageNum;
+  drawTopBar(`${STAGE_NAMES[fromIdx]} → ${STAGE_NAMES[toIdx]} 진화 중...!`);
+  const step = g.anim_step;
+  const flashOn = tick % 2 === 0;
+
+  if(step < GROWTH_STEP_COUNT - 1){
+    const cGrid = buildCreature(g.character_idx, fromIdx, 'happy', tick);
+    const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+    const by = 14 + jitterOffset(tick,1);
+    if(flashOn || step < 1) blit(cGrid, bx, by);
+    /* 반짝이는 별 입자들 */
+    const sparkR = 20 + step*4;
+    for(let a=0;a<360;a+=45){
+      const rad=(a+tick*10)*Math.PI/180;
+      const sx=OLED_W/2+Math.cos(rad)*sparkR, sy=32+Math.sin(rad)*(sparkR*0.5);
+      if((Math.floor(tick/2)+a)%3===0) pixelFill(Math.round(sx),Math.round(sy),1,1);
+    }
+  } else {
+    const cGrid = buildCreature(g.character_idx, toIdx, 'happy', tick);
+    const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+    const by = Math.round(13 + (46-cGrid.length)/2) + bounceOffset(tick,2,4);
+    blit(cGrid, bx, by);
+    pixelBorder(bx-3, by-2, cGrid[0].length+6, cGrid.length+8);
+  }
+}
+
+function drawStateEnding(tick){
+  drawTopBar('완전히 성장했어요!');
+  const cGrid = buildCreature(g.character_idx, 2, 'happy', tick);
+  const bx = Math.round(OLED_W/2 - cGrid[0].length/2);
+  const by = Math.round(12 + (40-cGrid.length)/2) + bounceOffset(tick,2,4);
+  blit(cGrid, bx, by);
+  for(let i=0;i<4;i++){
+    const px_ = bx - 8 - i*3 + jitterOffset(tick+i,1);
+    const py_ = 14 + ((tick*2 + i*7) % 30);
+    pixelFill(px_, py_, 1, 1);
+    pixelFill(bx + cGrid[0].length + 8 + i*3 - jitterOffset(tick+i,1), 14 + ((tick*3 + i*5) % 30), 1, 1);
+  }
+  text(`${CHAR_NAMES[g.character_idx]}, 축하해요!`, OLED_W/2, 55, 9, 'center');
+}
+
+/* 상태에 따라 알맞은 draw_* 를 호출하는 디스패처 */
+function drawScreen(tick){
+  clearOled();
+  switch(g.state){
+    case STATE.EGG:             drawStateEgg(tick); break;
+    case STATE.HATCHING:        drawStateHatching(tick); break;
+    case STATE.IDLE:             drawStateIdle(tick); break;
+    case STATE.INTERACT_MENU:   drawStateInteractMenu(tick); break;
+    case STATE.FOOD_SELECT:     drawStateFoodSelect(tick); break;
+    case STATE.ACTION_RESULT:   drawStateActionResult(tick); break;
+    case STATE.MINIGAME_SHOW:   drawStateMinigameShow(tick); break;
+    case STATE.MINIGAME_INPUT:  drawStateMinigameInput(tick); break;
+    case STATE.MINIGAME_RESULT: drawStateMinigameResult(tick); break;
+    case STATE.GROWTH_1:        drawStateGrowth(1, tick); break;
+    case STATE.GROWTH_2:        drawStateGrowth(2, tick); break;
+    case STATE.ENDING:          drawStateEnding(tick); break;
+    case STATE.STATUS:          drawStateStatus(tick); break;
+    case STATE.WASH_BUBBLE:     drawStateWashBubble(tick); break;
+    case STATE.PET_MASH:        drawStatePetMash(tick); break;
+    case STATE.PLAY_SELECT:     drawStatePlaySelect(tick); break;
+    case STATE.DINO_RUN:        drawStateDinoRun(tick); break;
+    case STATE.DINO_RESULT:     drawStateDinoResult(tick); break;
+  }
+
+  document.getElementById('devState').textContent = g.state;
+  document.getElementById('devGauge').textContent = `${g.growth_gauge}/${GAUGE_MAX}`;
+  document.getElementById('devStat').textContent = `${g.hunger}·${g.clean}·${g.energy}`;
+
+  const avail = getUpDownAvailability();
+  document.getElementById('btnW').classList.toggle('is-active', avail.up);
+  document.getElementById('btnX').classList.toggle('is-active', avail.down);
+}
+
+/* ============================================================================
+ * 이벤트 처리 — 게임 상태(update_state)는 오직 버튼 입력에만 반응한다.
+ * 표정 애니메이션(눈 깜빡임/통통 튀기 등)만을 위한 타이머가 별도로 존재하며,
+ * 이 타이머는 draw_screen()만 다시 호출할 뿐 g(게임 상태)는 절대 바꾸지 않는다.
+ * ==========================================================================*/
+let animTick = 0;
+function handleButton(btn){
+  if(btn === BTN.NONE) return;
+  if(btn === BTN.RESET){ initContext(); drawScreen(animTick); return; }
+  updateState(btn);
+  drawScreen(animTick);
+}
+
+document.getElementById('btnA').addEventListener('click', ()=> handleButton(BTN.LEFT));
+document.getElementById('btnS').addEventListener('click', ()=> handleButton(BTN.CENTER));
+document.getElementById('btnD').addEventListener('click', ()=> handleButton(BTN.RIGHT));
+document.getElementById('btnW').addEventListener('click', ()=> handleButton(BTN.UP));
+document.getElementById('btnX').addEventListener('click', ()=> handleButton(BTN.DOWN));
+document.getElementById('btnReset').addEventListener('click', ()=> handleButton(BTN.RESET));
+
+window.addEventListener('keydown', (e)=>{
+  const btn = mapKeyToButton(e.key);
+  if(btn !== BTN.NONE){ e.preventDefault(); handleButton(btn); }
+});
+
+/* 표정/애니메이션 전용 타이머는 원칙적으로 draw_screen()만 다시 그리고 게임
+ * 상태(g)는 건드리지 않는다. 다만 WASH_BUBBLE(거품 3초 연출)과 PET_MASH
+ * (쓰다듬기 연타 제한시간)는 요구사항상 "시간이 다 되면 자동으로 다음 단계로
+ * 넘어가야" 해서, 이 두 상태에 한해서만 예외적으로 카운트다운을 진행시킨다.
+ * 그 외 모든 게임 로직은 여전히 버튼 입력에만 반응한다(update_state). */
+function handleAnimTimers(){
+  if(g.state === STATE.WASH_BUBBLE){
+    g.wash_bubble_ticks_left--;
+    if(g.wash_bubble_ticks_left <= 0) changeState(STATE.ACTION_RESULT);
+  } else if(g.state === STATE.PET_MASH){
+    g.pet_mash_ticks_left--;
+    if(g.pet_mash_ticks_left <= 0) performPetAction(g.pet_mash_gauge);
+  } else if(g.state === STATE.DINO_RUN){
+    updateDinoTick();
+  }
+}
+
+/* 표정/애니메이션 전용 타이머: 약 6~7fps로 draw_screen만 다시 실행 */
+setInterval(()=>{ animTick++; handleAnimTimers(); drawScreen(animTick); }, 150);
+
+initContext();
+drawScreen(animTick); /* 폰트 로딩 전이라도 즉시 1차 렌더 (레이아웃 확인용) */
+
+/* Galmuri 웹폰트 로딩이 끝나면 한 번 더 다시 그려서, 로딩 전 기본 폰트로
+ * 그려졌던 첫 프레임의 글자가 깨져 보이는 문제(FOUT)를 확실히 없앤다. */
+if(document.fonts && document.fonts.ready){
+  Promise.all([
+    document.fonts.load(`16px 'Galmuri7'`),
+    document.fonts.load(`16px 'Galmuri9'`)
+  ]).catch(()=>{}).then(()=> document.fonts.ready).then(()=>{
+    drawScreen(animTick);
+  });
+}
+</script>
+</body>
+</html>
